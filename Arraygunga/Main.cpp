@@ -9,31 +9,42 @@
 
 struct Combination
 {
-    std::vector<int> values;
-    int sum;
+    std::vector<int> left;
+    std::vector<int> right;
+    int leftSum;
+    int rightSum;
 
-    Combination(std::vector<int> values, int sum)
+    Combination(std::vector<int> left, std::vector<int> right, int leftSum, int rightSum)
     {
-        this->values = values;
-        this->sum = sum;
+        this->left = left;
+        this->right = right;
+        this->leftSum = leftSum;
+        this->rightSum = rightSum;
+    }
+
+    int dif() const
+    {
+        return abs(this->leftSum - this->rightSum);
     }
 
     bool operator<(const Combination& other)
     {
-        //huge confuse
-        return other.sum > this->sum;
+        return this->dif() < other.dif();
     }
 };
 
 void calculateArrays(const std::vector<int> initialNumbers);
 void addRec(std::vector<int> currentValues, const std::vector<int>* initialValues, std::vector<Combination>* combinations);
+int sumIndexed(const std::vector<int>* initialValues, const std::vector<int>* positions);
+int sumValues(const std::vector<int>* values);
+void fillInverseVector(std::vector<int>* inverse, const std::vector<int>* initialValues, const std::vector<int>* positionsToInvert);
 
 int main(int argc, char* argv[])
 {
 
     auto start = std::chrono::system_clock::now();
 
-    calculateArrays({ 543, 504, 418, 376, 206, 138, 528, 504, 440, 363, 213, 129 });
+    calculateArrays({ 543, 504, 418, 376, 206, 138, 528, 504, 440, 363, 213, 128 });
 
 
     auto end = std::chrono::system_clock::now();
@@ -53,62 +64,29 @@ void calculateArrays(const std::vector<int> initialNumbers)
     if (initialNumbers.empty())
         exit(-4);
 
-    int halfsum = 0;
-    for (int num : initialNumbers)
-    {
-        halfsum += num;
-    }
-
-    halfsum /= 2;
+    int halfsum = sumValues(&initialNumbers) / 2;
 
     printf("Size: %d Goal: %d\n", initialNumbers.size(), halfsum);
 
     for (int i = 0; i < initialNumbers.size(); i++)
     {
         std::vector<int> currentNumbers({ i });
-        combinations.push_back(Combination(currentNumbers, initialNumbers[i]));
+        std::vector<int> currentNumbers2;
+        fillInverseVector(&currentNumbers2, &initialNumbers, &currentNumbers);
+
+        int sum = sumIndexed(&initialNumbers, &currentNumbers2);
+
+        combinations.push_back(Combination(currentNumbers, currentNumbers2, initialNumbers[i], sum));
 
         addRec(currentNumbers, &initialNumbers, &combinations);
     }
 
     std::sort(combinations.begin(), combinations.end());
 
-    int winner = -1;
-    for (int i = 0; i < combinations.size() && winner == -1; i++)
-    {
-        if (combinations[i].sum >= halfsum)
-            winner = i;
-    }
-
-    if (combinations[winner].sum != halfsum)
-    {
-        int prevSum = combinations[winner - 1].sum;
-        int sum = combinations[winner].sum;
-
-        if (abs(prevSum - halfsum) < abs(sum - halfsum))
-            winner--;
-    }
-
-    //create the arrays
-    std::vector<int> arr1;
-    std::vector<int> arr2;
-    arr1 = combinations[winner].values;
-
-    int readPos = 0;
-    for (int i = 0; i < initialNumbers.size(); i++)
-    {
-        if (arr1[readPos] == i)
-        {
-            readPos++;
-        }
-        else
-            arr2.push_back(i);
-    }
-
     printf("Possibilities: %d\n", combinations.size());
 
     int sum = 0;
-    for (int val : arr1)
+    for (int val : combinations.front().left)
     {
         printf("%d ", initialNumbers[val]);
         sum += initialNumbers[val];
@@ -117,7 +95,7 @@ void calculateArrays(const std::vector<int> initialNumbers)
     printf(" sum: %d\n", sum);
 
     sum = 0;
-    for (int val : arr2)
+    for (int val : combinations.front().right)
     {
         printf("%d ", initialNumbers[val]);
         sum += initialNumbers[val];
@@ -132,17 +110,56 @@ void addRec(std::vector<int> currentValues, const std::vector<int>* initialValue
     for (int i = currentValues.back() + 1; i < initialValues->size(); i++)
     {
         std::vector<int> currentNumbers = currentValues;
+        std::vector<int> currentNumbersInv;
         currentNumbers.push_back(i);
 
-        int sum = 0;
-        for (int val : currentNumbers)
-        {
-            sum += initialValues->at(val);
-        }
+        int sum = sumIndexed(initialValues, &currentNumbers);
 
-        combinations->push_back(Combination(currentNumbers, sum));
+        fillInverseVector(&currentNumbersInv, initialValues, &currentNumbers);
+        int invSum = sumIndexed(initialValues, &currentNumbersInv);
+
+        combinations->push_back(Combination(currentNumbers, currentNumbersInv, sum, invSum));
 
         addRec(currentNumbers, initialValues, combinations);
     }
 
 }
+
+void fillInverseVector(std::vector<int>* inverse, const std::vector<int>* initialValues, const std::vector<int>* positionsToInvert)
+{
+    int readPos = 0;
+    for (int i = 0; i < initialValues->size(); i++)
+    {
+        if (readPos < positionsToInvert->size() && positionsToInvert->at(readPos) == i)
+        {
+            readPos++;
+        }
+        else
+            inverse->push_back(i);
+    }
+}
+
+
+
+int sumIndexed(const std::vector<int>* initialValues, const std::vector<int>* positions)
+{
+    int sum = 0;
+    for (int num : *positions)
+    {
+        sum += initialValues->at(num);
+    }
+
+    return sum;
+}
+
+int sumValues(const std::vector<int>* values)
+{
+    int sum = 0;
+    for (int num : *values)
+    {
+        sum += num;
+    }
+
+    return sum;
+}
+
